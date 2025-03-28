@@ -25,6 +25,7 @@ import com.guy.myapplication.domain.enums.SoundPack
 /**
  * Settings screen for the Simon Says game
  * Allows users to configure game preferences like sound packs
+ * 
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
