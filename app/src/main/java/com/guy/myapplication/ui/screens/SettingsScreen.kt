@@ -14,18 +14,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.guy.myapplication.data.manager.SimonSoundManager
 import com.guy.myapplication.domain.enums.SimonButton
 import com.guy.myapplication.domain.enums.SoundPack
+import org.koin.compose.koinInject
 
 /**
  * Settings screen for the Simon Says game
  * Allows users to configure game preferences like sound packs
- * 
+ *
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,21 +36,14 @@ fun SettingsScreen(
     onVibrateToggled: (Boolean) -> Unit = {},
     onBackPressed: () -> Unit
 ) {
-    // Create a sound manager for playing sounds in the settings screen
-    val context = LocalContext.current
-    val soundManager = remember { SimonSoundManager(context) }
+    // Inject SimonSoundManager from Koin
+    val soundManager = koinInject<SimonSoundManager>()
 
     // Initialize with the current sound pack
     LaunchedEffect(currentSoundPack) {
         soundManager.setSoundPack(currentSoundPack)
     }
 
-    // Clean up resources when leaving the screen
-    DisposableEffect(Unit) {
-        onDispose {
-            soundManager.release()
-        }
-    }
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color.Black
@@ -123,7 +116,7 @@ fun SettingsScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)
                 )
-                
+
                 // Vibration toggle switch
                 Row(
                     modifier = Modifier
@@ -140,20 +133,20 @@ fun SettingsScreen(
                             color = Color.White,
                             fontSize = 16.sp
                         )
-                        
+
                         Text(
                             text = "Short vibration (100ms) when buttons are pressed",
                             color = Color.Gray,
                             fontSize = 14.sp
                         )
                     }
-                    
+
                     Switch(
                         checked = vibrateEnabled,
-                        onCheckedChange = { 
+                        onCheckedChange = {
                             // Also play a test vibration if turning on
                             if (it) soundManager.setVibrationEnabled(true)
-                            onVibrateToggled(it) 
+                            onVibrateToggled(it)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = MaterialTheme.colorScheme.primary,

@@ -6,7 +6,6 @@ import androidx.core.content.edit
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.guy.myapplication.data.manager.SimonSoundManager
 import com.guy.myapplication.domain.enums.SimonButton
@@ -20,13 +19,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /**
  * ViewModel for the Simon Says game logic with lifecycle awareness
  */
-class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLifecycleObserver {
-    // Store only the application context to prevent memory leaks
-    private val appContext = applicationContext.applicationContext
+class SimonGameViewModel(
+    // Inject SimonSoundManager through constructor
+    private val soundManager: SimonSoundManager
+) : ViewModel(), DefaultLifecycleObserver {
+
+    // Get the application context from Koin
+    private val appContext = soundManager.getContext()
 
     private val TAG = "SimonGameViewModel"
 
@@ -52,9 +58,6 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLife
     private val preferences = appContext.getSharedPreferences(
         "simon_game_prefs", Context.MODE_PRIVATE
     )
-
-    // Sound manager for button sounds
-    private val soundManager = SimonSoundManager(appContext)
 
     // Private and public state flows
     private val _uiState = MutableStateFlow(SimonGameUiState())
@@ -261,7 +264,6 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLife
     }
 
     // Play a startup animation by lighting up each button in sequence
-    // Play a startup animation by lighting up each button in sequence
     private fun playStartupAnimation(onComplete: () -> Unit) {
         Log.d(TAG, "Playing startup animation")
 
@@ -329,7 +331,6 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLife
         Log.d(TAG, "Sequence is now: ${_uiState.value.sequence}")
     }
 
-    // Display the sequence to the player
     // Display the sequence to the player
     private fun showSequence() {
         Log.d(TAG, "Showing sequence of length: ${_uiState.value.sequence.size}")
@@ -514,7 +515,6 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLife
         handleGameOver("Wrong button pressed")
     }
 
-    // Flash all buttons to indicate game over
     // Flash all buttons to indicate game over
     private fun flashAllButtons() {
         Log.d(TAG, "Flashing all buttons for game over animation")
@@ -761,19 +761,5 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLife
         activeSequenceJob = null
 
         soundManager.release()
-    }
-
-    /**
-     * Factory for creating a SimonGameViewModel with proper dependencies
-     */
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SimonGameViewModel::class.java)) {
-                // Pass application context to prevent leaks
-                return SimonGameViewModel(context.applicationContext) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }

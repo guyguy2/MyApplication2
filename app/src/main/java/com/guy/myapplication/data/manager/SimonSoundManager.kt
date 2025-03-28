@@ -82,6 +82,14 @@ class SimonSoundManager(private val context: Context) {
     }
 
     /**
+     * Get the context
+     * Used by ViewModel to access application context
+     */
+    fun getContext(): Context {
+        return context.applicationContext
+    }
+
+    /**
      * List all raw resources to help debug resource loading issues
      */
     private fun listAllRawResources() {

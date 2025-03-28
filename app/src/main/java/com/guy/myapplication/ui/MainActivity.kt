@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -19,13 +18,14 @@ import com.guy.myapplication.domain.model.GameState
 import com.guy.myapplication.ui.screens.SimonSaysGame
 import com.guy.myapplication.ui.theme.MyApplicationTheme
 import com.guy.myapplication.ui.viewmodels.SimonGameViewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
 
-    // Use lazy delegate to initialize ViewModel when first accessed
-    private val viewModel: SimonGameViewModel by viewModels { SimonGameViewModel.Factory(this) }
+    // Use Koin to inject ViewModel
+    private val viewModel: SimonGameViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
