@@ -11,6 +11,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.DefaultLifecycleObserver
 import com.guy.myapplication.R
 import com.guy.myapplication.domain.enums.SimonButton
 import com.guy.myapplication.domain.enums.SoundPack
@@ -23,9 +24,17 @@ class MainActivity : ComponentActivity() {
 
     private val TAG = "MainActivity"
 
+    // Use lazy delegate to initialize ViewModel when first accessed
+    private val viewModel: SimonGameViewModel by viewModels { SimonGameViewModel.Factory(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        Log.d(TAG, "onCreate called")
+
+        // Register the ViewModel as a lifecycle observer to handle pause/resume
+        lifecycle.addObserver(viewModel as DefaultLifecycleObserver)
 
         // Check for sound resources
         checkSoundResources()
@@ -36,9 +45,6 @@ class MainActivity : ComponentActivity() {
         val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)
         Log.d(TAG, "Audio volume: $currentVolume/$maxVolume")
 
-        // Initialize ViewModel using the factory
-        val viewModel: SimonGameViewModel by viewModels { SimonGameViewModel.Factory(this) }
-        
         // Setup back press handling using OnBackPressedDispatcher
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -64,6 +70,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy called")
+
+        // Remove lifecycle observer
+        lifecycle.removeObserver(viewModel as DefaultLifecycleObserver)
     }
 
     private fun checkSoundResources() {
@@ -96,7 +110,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        
+
         // Log the configuration change
         val orientation = when (newConfig.orientation) {
             Configuration.ORIENTATION_LANDSCAPE -> "Landscape"
@@ -104,10 +118,7 @@ class MainActivity : ComponentActivity() {
             else -> "Undefined"
         }
         Log.d(TAG, "Configuration changed: orientation=$orientation")
-        
-        // Get the ViewModel instance
-        val viewModel: SimonGameViewModel by viewModels { SimonGameViewModel.Factory(this) }
-        
+
         // If the game is in PlayerRepeating state, reset the timeout timer
         // This prevents timeout issues during orientation changes
         if (viewModel.uiState.value.gameState is GameState.PlayerRepeating) {
@@ -125,19 +136,19 @@ class MainActivity : ComponentActivity() {
             "standard_yellow_tone" -> R.raw.standard_yellow_tone
             "standard_blue_tone" -> R.raw.standard_blue_tone
             "standard_error_tone" -> R.raw.standard_error_tone
-            
+
             // Funny sound pack - using standard sounds until funny ones are added
-            "funny_green_tone", "funny_red_tone", "funny_yellow_tone", 
+            "funny_green_tone", "funny_red_tone", "funny_yellow_tone",
             "funny_blue_tone", "funny_error_tone" -> {
                 // Log that we're using standard sounds as fallback
                 Log.d(TAG, "  - Using standard sounds for: $resourceName")
                 0 // Return 0 to indicate it's not directly available but handled
             }
-            
+
             // For all other resources
             else -> 0
         }
-        
+
         if (resourceId != 0) {
             // Resource exists
             Log.d(TAG, "✓ Resource found: $resourceName (ID: $resourceId)")

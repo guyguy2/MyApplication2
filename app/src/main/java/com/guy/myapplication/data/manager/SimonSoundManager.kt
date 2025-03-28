@@ -15,14 +15,17 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Manages sound effects for the Simon Says game with support for multiple sound packs
- * Enhanced with debug logging
+ * Enhanced with debug logging and lifecycle awareness
  */
 class SimonSoundManager(private val context: Context) {
 
     private val TAG = "SimonSoundManager"
 
     private val soundPool: SoundPool
-    
+
+    // Flag to track if sounds are paused when app is in background
+    private var isPaused = false
+
     // Vibration settings and control
     private var vibrateEnabled = true
     private val vibrator: Vibrator by lazy {
@@ -45,7 +48,7 @@ class SimonSoundManager(private val context: Context) {
 
     // Track load status
     private val loadStatusMap = ConcurrentHashMap<Int, Boolean>()
-    
+
     // Track currently playing sound streams to be able to stop them
     private var activeStreamId: Int = 0
 
@@ -244,14 +247,14 @@ class SimonSoundManager(private val context: Context) {
             "standard_yellow_tone" -> R.raw.standard_yellow_tone
             "standard_blue_tone" -> R.raw.standard_blue_tone
             "standard_error_tone" -> R.raw.standard_error_tone
-            
+
             // Funny sound pack - fallback to standard for now
             "funny_green_tone" -> R.raw.standard_green_tone
             "funny_red_tone" -> R.raw.standard_red_tone
             "funny_yellow_tone" -> R.raw.standard_yellow_tone
             "funny_blue_tone" -> R.raw.standard_blue_tone
             "funny_error_tone" -> R.raw.standard_error_tone
-            
+
             // For all other resources, return 0 (not found)
             else -> {
                 Log.w(TAG, "Resource not found in direct mapping: $resourceName")
@@ -261,81 +264,123 @@ class SimonSoundManager(private val context: Context) {
     }
 
     /**
+     * Pause all sounds
+     * Called when app goes to background
+     */
+    fun pauseSounds() {
+        Log.d(TAG, "Pausing all sounds")
+        isPaused = true
+
+        // Stop any currently playing sounds
+        stopAllSounds()
+
+        // Auto-pause SoundPool
+        soundPool.autoPause()
+    }
+
+    /**
+     * Resume sounds
+     * Called when app returns to foreground
+     */
+    fun resumeSounds() {
+        Log.d(TAG, "Resuming sounds")
+        isPaused = false
+
+        // Auto-resume SoundPool
+        soundPool.autoResume()
+    }
+
+    /**
      * Change the active sound pack
      */
     fun setSoundPack(soundPack: SoundPack) {
         Log.d(TAG, "Changing sound pack to: ${soundPack.name}")
         currentSoundPack = soundPack
     }
-    
+
     /**
      * Set whether vibration is enabled
      */
     fun setVibrationEnabled(enabled: Boolean) {
         Log.d(TAG, "Setting vibration enabled: $enabled")
         vibrateEnabled = enabled
-        
-        // Test vibration immediately if enabling
-        if (enabled) {
+
+        // Test vibration immediately if enabling (only if not paused)
+        if (enabled && !isPaused) {
             try {
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     Log.d(TAG, "Testing vibration after enabling")
-                    vibrate() 
+                    vibrate()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to test vibration", e)
             }
         }
     }
-    
+
     /**
      * Get current vibration setting
      */
     fun isVibrationEnabled(): Boolean {
         return vibrateEnabled
     }
-    
+
+    /**
+     * Check if the vibrator can actually vibrate
+     */
+    private fun hasVibrator(): Boolean {
+        return vibrator.hasVibrator()
+    }
+
     /**
      * Trigger a short vibration for button press
      */
-    // Check if the vibrator can actually vibrate
-    private fun hasVibrator() {
-        return
-        vibrator.hasVibrator()
-    }
-    
     private fun vibrate() {
-        if (!vibrateEnabled) {
-            Log.d(TAG, "Vibration disabled, skipping")
+        if (!vibrateEnabled || isPaused) {
+            Log.d(TAG, "Vibration disabled or app paused, skipping")
             return
         }
 
-        
+        if (!hasVibrator()) {
+            Log.d(TAG, "Device does not have vibration capability")
+            return
+        }
+
         try {
-            Log.d(TAG, "Actually triggering vibration now")
-            // For Android 8.0+
-            val effect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
-            vibrator.vibrate(effect)
-            Log.d(TAG, "Vibrated using modern API")
+            Log.d(TAG, "Triggering vibration")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect = VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE)
+                vibrator.vibrate(effect)
+                Log.d(TAG, "Vibrated using modern API")
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(100)
+                Log.d(TAG, "Vibrated using legacy API")
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to vibrate", e)
             e.printStackTrace()
         }
     }
 
-
     /**
      * Play the sound associated with a specific Simon button using the current sound pack
-     * 
+     *
      * @param button The button to play sound for
      * @param isPlayerPressed Whether this sound is from a player pressing a button (for vibration)
      */
     fun playSound(button: SimonButton, isPlayerPressed: Boolean = false) {
         Log.d(TAG, "Request to play sound for button: $button with sound pack: ${currentSoundPack.name}, player pressed: $isPlayerPressed")
 
+        // Don't play if paused
+        if (isPaused) {
+            Log.d(TAG, "Sounds are paused, not playing")
+            return
+        }
+
         // Stop any currently playing sound
         stopAllSounds()
-        
+
         val soundMap = soundPackMap[currentSoundPack]
         if (soundMap == null) {
             Log.e(TAG, "❌ Sound map not found for sound pack: ${currentSoundPack.name}")
@@ -368,7 +413,7 @@ class SimonSoundManager(private val context: Context) {
         } else {
             Log.d(TAG, "✓ Successfully playing sound for button $button (playId=$playId)")
             activeStreamId = playId
-            
+
             // Only vibrate if this is a player-initiated press, not computer sequence
             if (isPlayerPressed) {
                 Log.d(TAG, "Player pressed button, triggering vibration")
@@ -379,7 +424,7 @@ class SimonSoundManager(private val context: Context) {
             }
         }
     }
-    
+
     /**
      * Stop all currently playing sounds
      */
@@ -396,7 +441,13 @@ class SimonSoundManager(private val context: Context) {
      */
     fun playErrorSound() {
         Log.d(TAG, "Request to play error sound with sound pack: ${currentSoundPack.name}")
-        
+
+        // Don't play if paused
+        if (isPaused) {
+            Log.d(TAG, "Sounds are paused, not playing error sound")
+            return
+        }
+
         // Stop any currently playing sound
         stopAllSounds()
 
@@ -425,9 +476,9 @@ class SimonSoundManager(private val context: Context) {
         } else {
             Log.d(TAG, "✓ Successfully playing error sound (playId=$playId)")
             activeStreamId = playId
-            
+
             // Stronger vibration for error (double pulse)
-            if (vibrateEnabled) {
+            if (vibrateEnabled && !isPaused) {
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         // Create a pattern for error: vibrate-pause-vibrate
@@ -450,6 +501,7 @@ class SimonSoundManager(private val context: Context) {
      */
     fun release() {
         Log.d(TAG, "Releasing SoundPool resources")
+        stopAllSounds()
         soundPool.release()
     }
 }

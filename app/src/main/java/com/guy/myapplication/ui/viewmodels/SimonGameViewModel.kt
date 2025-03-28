@@ -3,6 +3,8 @@ package com.guy.myapplication.ui.viewmodels
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -20,22 +22,31 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel for the Simon Says game logic
+ * ViewModel for the Simon Says game logic with lifecycle awareness
  */
-class SimonGameViewModel(applicationContext: Context) : ViewModel() {
+class SimonGameViewModel(applicationContext: Context) : ViewModel(), DefaultLifecycleObserver {
     // Store only the application context to prevent memory leaks
     private val appContext = applicationContext.applicationContext
 
     private val TAG = "SimonGameViewModel"
-    
+
     // Flag to track if startup animation has been played in this session
     private var hasPlayedStartupAnimation = false
-    
+
     // Timeout duration for player's turn (10 seconds)
     private val playerTimeoutDuration = 10000L // 10 seconds in milliseconds
-    
+
     // Job to track the timeout timer
     private var timeoutJob: Job? = null
+
+    // Track if the app is currently in foreground
+    private var isAppInForeground = true
+
+    // Track if the game was active before going to background
+    private var wasGameActiveBeforeBackground = false
+
+    // Track the game state before going to background
+    private var gameStateBeforeBackground: GameState = GameState.WaitingToStart
 
     // SharedPreferences for storing settings
     private val preferences = appContext.getSharedPreferences(
@@ -74,7 +85,7 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
         }
 
         val savedHighScore = preferences.getInt("high_score", 0)
-        
+
         // Load vibration setting (default to true)
         val savedVibrateEnabled = preferences.getBoolean("vibrate_enabled", true)
 
@@ -109,27 +120,27 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
 
     // Track previous game state before entering settings
     private var previousGameState: GameState = GameState.WaitingToStart
-    
+
     // Track active coroutine jobs that need to be paused/resumed
     private var activeSequenceJob: Job? = null
-    
+
     /**
      * Switch to settings screen
      */
     fun showSettings() {
         Log.d(TAG, "Switching to settings screen")
-        
+
         // Store current state to restore when returning from settings
         previousGameState = _uiState.value.gameState
-        
+
         // Cancel any active timeout timer when going to settings
         cancelTimeoutTimer()
-        
+
         // Cancel any active sequence jobs
         activeSequenceJob?.cancel()
         activeSequenceJob = null
-        
-        
+
+
         // Switch to settings screen
         _uiState.update { it.copy(gameState = GameState.Settings) }
     }
@@ -139,7 +150,13 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
      */
     fun exitSettings() {
         Log.d(TAG, "Exiting settings screen")
-        
+
+        // Only resume if app is in foreground
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, not resuming game from settings yet")
+            return
+        }
+
         when (previousGameState) {
             // If we were showing sequence when settings was opened, restart sequence display
             is GameState.ShowingSequence -> {
@@ -149,7 +166,7 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
                 // Then restart sequence display
                 showSequence()
             }
-            
+
             // If player was repeating a sequence, let them continue
             is GameState.PlayerRepeating -> {
                 Log.d(TAG, "Resuming from PlayerRepeating state")
@@ -157,9 +174,9 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
                 // Reset the timeout timer when returning to the game
                 resetTimeoutTimer()
             }
-            
+
             // If we were in a transitional state, just start a new game
-            is GameState.Settings, 
+            is GameState.Settings,
             is GameState.GameOver,
             is GameState.WaitingToStart -> {
                 Log.d(TAG, "Starting new game after returning from settings")
@@ -173,7 +190,7 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
                 }
             }
         }
-        
+
         // Reset the previous state
         previousGameState = GameState.WaitingToStart
     }
@@ -193,19 +210,19 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
         // Save to preferences
         saveSettings()
     }
-    
+
     /**
      * Toggle vibration setting
      */
     fun setVibrationEnabled(enabled: Boolean) {
         Log.d(TAG, "Setting vibration enabled: $enabled")
-        
+
         // Update sound manager
         soundManager.setVibrationEnabled(enabled)
-        
+
         // Update UI state
         _uiState.update { it.copy(vibrateEnabled = enabled) }
-        
+
         // Save to preferences
         saveSettings()
     }
@@ -213,10 +230,10 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
     // Initialize game state for a new game without animation
     private fun initializeNewGame() {
         Log.d(TAG, "Initializing new game state")
-        
+
         // Cancel any active timers to prevent unexpected behavior
         cancelTimeoutTimer()
-        
+
         _uiState.update { currentState ->
             currentState.copy(
                 gameState = GameState.WaitingToStart,
@@ -227,39 +244,58 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
                 allButtonsLit = false
             )
         }
-        
+
         // Start the game by generating and showing the first sequence
-        generateNextSequence()
-        showSequence()
+        // Only if app is in foreground
+        if (isAppInForeground) {
+            generateNextSequence()
+            showSequence()
+        }
     }
-    
+
     // Start a new game - public method called by UI
     fun startNewGame() {
         Log.d(TAG, "Starting new game")
         // No startup animation on manual game restart
         initializeNewGame()
     }
-    
+
+    // Play a startup animation by lighting up each button in sequence
     // Play a startup animation by lighting up each button in sequence
     private fun playStartupAnimation(onComplete: () -> Unit) {
         Log.d(TAG, "Playing startup animation")
-        
+
+        // Don't play animation if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, skipping startup animation")
+            onComplete()
+            return
+        }
+
         // The buttons in order for the startup animation
         val buttonsInOrder = listOf(
             SimonButton.GREEN,
-            SimonButton.RED, 
-            SimonButton.YELLOW, 
+            SimonButton.RED,
+            SimonButton.YELLOW,
             SimonButton.BLUE
         )
-        
+
         // Cancel any existing animations
         activeSequenceJob?.cancel()
-        
+
         // Start and track new animation
         activeSequenceJob = viewModelScope.launch {
             delay(500)
             // Flash each button in order
             buttonsInOrder.forEach { button ->
+                // Check if app is still in foreground before each step
+                if (!isAppInForeground) {
+                    Log.d(TAG, "App went to background during startup animation, cancelling")
+                    // Use this instead of cancel()
+                    activeSequenceJob?.cancel()
+                    return@launch
+                }
+
                 Log.d(TAG, "Startup animation: lighting up $button")
                 _uiState.update { it.copy(currentlyLit = button) }
                 soundManager.playSound(button)
@@ -267,13 +303,13 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
                 _uiState.update { it.copy(currentlyLit = null) }
                 delay(150)
             }
-            
+
             // Slight pause before starting the game
             delay(500)
-            
+
             // Call the completion handler
             onComplete()
-            
+
             // Clear the active job reference
             activeSequenceJob = null
         }
@@ -294,8 +330,16 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
     }
 
     // Display the sequence to the player
+    // Display the sequence to the player
     private fun showSequence() {
         Log.d(TAG, "Showing sequence of length: ${_uiState.value.sequence.size}")
+
+        // Don't show sequence if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, not showing sequence now")
+            return
+        }
+
         _uiState.update { it.copy(gameState = GameState.ShowingSequence) }
 
         // Cancel any existing sequence job
@@ -307,6 +351,14 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
 
             // Light up each button in the sequence and play sound
             _uiState.value.sequence.forEachIndexed { index, button ->
+                // Check if app is still in foreground
+                if (!isAppInForeground) {
+                    Log.d(TAG, "App went to background while showing sequence, cancelling")
+                    // Use this instead of cancel()
+                    activeSequenceJob?.cancel()
+                    return@launch
+                }
+
                 Log.d(TAG, "Showing sequence item $index: $button")
 
                 // Update UI state to light the button
@@ -345,6 +397,12 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
     // Handle player button presses
     fun onButtonClick(button: SimonButton, isPress: Boolean) {
         Log.d(TAG, "Button ${if (isPress) "press" else "release"}: $button")
+
+        // Ignore button presses if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, ignoring button press")
+            return
+        }
 
         if (isPress) {
             // Handle press event
@@ -441,13 +499,13 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
             advanceToNextLevel()
         }
     }
-    
+
     // Handle button release events
     fun onButtonRelease(button: SimonButton) {
         // Remove button from active presses
         val activeButtons = _uiState.value.activeButtonPresses.toMutableMap()
         activeButtons.remove(button)
-        
+
         _uiState.update { it.copy(activeButtonPresses = activeButtons) }
     }
 
@@ -455,29 +513,44 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
     private fun handleGameOver() {
         handleGameOver("Wrong button pressed")
     }
-    
+
+    // Flash all buttons to indicate game over
     // Flash all buttons to indicate game over
     private fun flashAllButtons() {
         Log.d(TAG, "Flashing all buttons for game over animation")
-        
+
+        // Don't flash if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, skipping game over animation")
+            return
+        }
+
         // Cancel any existing sequence animation
         activeSequenceJob?.cancel()
-        
+
         // Start and track the flashing animation
         activeSequenceJob = viewModelScope.launch {
             // Flash all buttons 3 times
             repeat(3) { flashCount ->
+                // Check if app is still in foreground
+                if (!isAppInForeground) {
+                    Log.d(TAG, "App went to background during game over animation, cancelling")
+                    // Use this instead of cancel()
+                    activeSequenceJob?.cancel()
+                    return@launch
+                }
+
                 Log.d(TAG, "Flash sequence $flashCount")
-                
+
                 // Turn all buttons on
                 _uiState.update { it.copy(allButtonsLit = true) }
                 delay(300)
-                
+
                 // Turn all buttons off
                 _uiState.update { it.copy(allButtonsLit = false) }
                 delay(300)
             }
-            
+
             // Clear the job reference when done
             activeSequenceJob = null
         }
@@ -493,12 +566,18 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
 
         // Cancel any existing sequence job
         activeSequenceJob?.cancel()
-        
+
         // Brief delay before showing new sequence
         activeSequenceJob = viewModelScope.launch {
             delay(1000)
-            showSequence()
-            
+
+            // Check if app is still in foreground
+            if (isAppInForeground) {
+                showSequence()
+            } else {
+                Log.d(TAG, "App went to background before showing new sequence")
+            }
+
             // Clear job reference after showSequence (which sets its own reference)
             activeSequenceJob = null
         }
@@ -507,16 +586,29 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
     // Start a timer that will end the game if the player doesn't act within the timeout period
     private fun startTimeoutTimer() {
         Log.d(TAG, "Starting player inactivity timeout timer (${playerTimeoutDuration/1000} seconds)")
-        
+
+        // Don't start timer if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, not starting timeout timer")
+            return
+        }
+
         // Cancel any existing timer first
         cancelTimeoutTimer()
-        
+
         // Start a new timer
         timeoutJob = viewModelScope.launch {
             delay(playerTimeoutDuration)
+
+            // Check if app is still in foreground
+            if (!isAppInForeground) {
+                Log.d(TAG, "App is in background when timeout occurred, ignoring")
+                return@launch
+            }
+
             // If this code executes, the timeout has occurred
             Log.d(TAG, "Player timeout! No button pressed for ${playerTimeoutDuration/1000} seconds")
-            
+
             // Ensure we're still in PlayerRepeating state (could have changed during the delay)
             if (_uiState.value.gameState == GameState.PlayerRepeating) {
                 // Play timout sound and end game
@@ -529,20 +621,23 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
             }
         }
     }
-    
+
     // Reset the timeout timer (when a player presses a button)
     // Public to allow resetting from Activity during configuration changes
     fun resetTimeoutTimer() {
-        Log.d(TAG, "Resetting player inactivity timeout timer")
-        startTimeoutTimer() // Cancel and start a new timeout
+        // Only reset if app is in foreground
+        if (isAppInForeground) {
+            Log.d(TAG, "Resetting player inactivity timeout timer")
+            startTimeoutTimer() // Cancel and start a new timeout
+        }
     }
-    
+
     // Cancel the timeout timer
     private fun cancelTimeoutTimer() {
         timeoutJob?.cancel()
         timeoutJob = null
     }
-    
+
     // Handle game over state with an optional reason
     private fun handleGameOver(reason: String = "Game over") {
         // Cancel any running timeout timer
@@ -550,8 +645,15 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
         val currentLevel = _uiState.value.level
         val currentHighScore = _uiState.value.highScore
         Log.d(TAG, "$reason at level $currentLevel (high score: $currentHighScore)")
-        
-        
+
+        // Don't do game over animation if app is in background
+        if (!isAppInForeground) {
+            Log.d(TAG, "App is in background, skipping game over animation")
+            // Just update the game state immediately
+            updateGameOverState(currentLevel, currentHighScore)
+            return
+        }
+
         // Check if this is a new high score
         val newHighScore = if (currentLevel > currentHighScore) currentLevel else currentHighScore
 
@@ -565,32 +667,99 @@ class SimonGameViewModel(applicationContext: Context) : ViewModel() {
         viewModelScope.launch {
             // Wait for flash animation to complete (in flashAllButtons)
             delay(2000)
-            
-            _uiState.update {
-                it.copy(
-                    gameState = GameState.GameOver,
-                    highScore = newHighScore
-                )
-            }
 
-            // Save high score if it changed
-            if (newHighScore > currentHighScore) {
-                saveSettings()
+            updateGameOverState(currentLevel, newHighScore)
+        }
+    }
+
+    // Helper function to update the game state after game over
+    private fun updateGameOverState(currentLevel: Int, newHighScore: Int) {
+        _uiState.update {
+            it.copy(
+                gameState = GameState.GameOver,
+                highScore = newHighScore
+            )
+        }
+
+        // Save high score if it changed
+        if (newHighScore > _uiState.value.highScore) {
+            saveSettings()
+        }
+    }
+
+    // Lifecycle methods
+
+    // Called when app goes to foreground
+    override fun onResume(owner: LifecycleOwner) {
+        Log.d(TAG, "onResume - App coming to foreground")
+        isAppInForeground = true
+
+        // Resume sounds
+        soundManager.resumeSounds()
+
+        // Check if we need to resume the game
+        if (wasGameActiveBeforeBackground) {
+            Log.d(TAG, "Resuming game from previous state: $gameStateBeforeBackground")
+            wasGameActiveBeforeBackground = false
+
+            when (gameStateBeforeBackground) {
+                is GameState.ShowingSequence -> {
+                    // Restart showing sequence
+                    showSequence()
+                }
+                is GameState.PlayerRepeating -> {
+                    // Return to player's turn and restart timeout
+                    _uiState.update { it.copy(gameState = GameState.PlayerRepeating) }
+                    resetTimeoutTimer()
+                }
+                is GameState.GameOver, is GameState.WaitingToStart -> {
+                    // No special handling needed
+                }
+                is GameState.Settings -> {
+                    // Stay in settings
+                }
             }
         }
     }
-    
+
+    // Called when app goes to background
+    override fun onPause(owner: LifecycleOwner) {
+        Log.d(TAG, "onPause - App going to background")
+        isAppInForeground = false
+
+        // Save current game state to restore later
+        gameStateBeforeBackground = _uiState.value.gameState
+        wasGameActiveBeforeBackground = _uiState.value.gameState is GameState.ShowingSequence ||
+                _uiState.value.gameState is GameState.PlayerRepeating
+
+        // Cancel any active animations
+        activeSequenceJob?.cancel()
+        activeSequenceJob = null
+
+        // Cancel timeout timer
+        cancelTimeoutTimer()
+
+        // Pause all sounds
+        soundManager.pauseSounds()
+
+        // Turn off any lit buttons
+        _uiState.update { it.copy(
+            currentlyLit = null,
+            allButtonsLit = false
+        )}
+    }
+
     // Clean up resources when ViewModel is cleared
     override fun onCleared() {
         Log.d(TAG, "ViewModel cleared, releasing sound resources")
         super.onCleared()
         saveSettings()
         cancelTimeoutTimer() // Make sure to cancel any timers
-        
+
         // Cancel any active animations or sequences
         activeSequenceJob?.cancel()
         activeSequenceJob = null
-        
+
         soundManager.release()
     }
 
