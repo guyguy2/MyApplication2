@@ -20,8 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import com.guy.myapplication.R
 import com.guy.myapplication.domain.enums.SimonButton
 import com.guy.myapplication.domain.model.GameState
@@ -67,10 +65,11 @@ fun SimonSaysGame(viewModel: SimonGameViewModel) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SimonGameScreen(
     uiState: SimonGameUiState,
-    onButtonClick: (SimonButton, Boolean) -> Unit, // Modified to include isPress parameter
+    onButtonClick: (SimonButton, Boolean) -> Unit,
     onSettingsClick: () -> Unit,
     onStartNewGame: () -> Unit
 ) {
@@ -88,45 +87,50 @@ fun SimonGameScreen(
         }
 
         // Pass all events to ViewModel with isPress parameter
-        // Let ViewModel decide if this should trigger sound/light/game logic
         onButtonClick(button, isPress)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.Black
-    ) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Simon Says") },
+                actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
+            )
+        },
+        containerColor = Color.Black
+    ) { paddingValues ->
+        // Game content with minimal padding to maximize button size
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    top = paddingValues.calculateTopPadding(),
+                    bottom = 0.dp,
+                    start = 0.dp,
+                    end = 0.dp
+                ),
             contentAlignment = Alignment.Center
         ) {
-            // Settings button in top-right corner
+            // Simon Says Game UI - Using more vertical space
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 32.dp)
-                        .size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            // Simon Says Game UI
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight(0.8f)
-                    .fillMaxWidth(0.9f),
+                    .fillMaxHeight(0.95f)
+                    .fillMaxWidth(0.9f)
+                    .padding(top = 8.dp), // Reduced top padding
                 contentAlignment = Alignment.Center
             ) {
                 // Background
@@ -145,14 +149,12 @@ fun SimonGameScreen(
                         // Green panel (top-left)
                         SimonPanel(
                             color = SimonButton.GREEN.color,
-                            // Light up when ViewModel says to, not based on local state
                             isLit = uiState.currentlyLit == SimonButton.GREEN || uiState.allButtonsLit,
-                            // Physical pressed state from local state for immediate feedback
                             userPressed = localPressedButtons[SimonButton.GREEN] == true,
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxHeight()
-                                .padding(4.dp),
+                                .padding(2.dp),
                             onTouchStateChanged = { isPressed ->
                                 handleButtonInteraction(SimonButton.GREEN, isPressed)
                             }
@@ -204,7 +206,7 @@ fun SimonGameScreen(
                     }
                 }
 
-                // Center counter - keep existing implementation
+                // Center counter
                 Box(
                     modifier = Modifier
                         .size(120.dp)
@@ -221,9 +223,8 @@ fun SimonGameScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Colored arcs - keep existing implementation
+                    // Colored arcs
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        // Existing arc drawing code...
                         val strokeWidth = 10.dp.toPx()
                         val radius = size.width / 2 - strokeWidth / 2
 

@@ -8,6 +8,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.DefaultLifecycleObserver
@@ -62,12 +63,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MyApplicationTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // Pass the ViewModel to the game UI
-                    SimonSaysGame(viewModel)
-                }
+                // No need for a Surface here since our Scaffold components handle the surface
+                SimonSaysGame(viewModel)
             }
         }
     }
