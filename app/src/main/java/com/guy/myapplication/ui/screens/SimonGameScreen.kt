@@ -214,7 +214,7 @@ fun SimonGameScreen(
                 // Center counter/button with FAB-style when in GameOver state
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(110.dp)
                         .then(
                             if (uiState.gameState == GameState.GameOver) {
                                 // When in GameOver state, add elevation and shadow
@@ -251,8 +251,7 @@ fun SimonGameScreen(
                 ) {
                     // Colored arcs
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 10.dp.toPx()
-                        val radius = size.width / 2 - strokeWidth / 2
+                        val strokeWidth = 8.dp.toPx()
 
                         // Draw green arc (top-left)
                         drawArc(
@@ -323,66 +322,81 @@ fun SimonGameScreen(
                         )
                     }
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    // Create a centered inner content Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        if (uiState.gameState == GameState.GameOver) {
-                            // Play icon when game is over
-                            Icon(
-                                painter = painterResource(R.drawable.play_arrow_24px),
-                                contentDescription = "Play Again",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
-                            )
-
-                            // Small "Play Again" text below the icon
-                            Text(
-                                text = "Play Again",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        } else {
-                            // Number display - shows level when not in game over
-                            Text(
-                                text = uiState.level.toString(),
-                                color = Color.White,
-                                fontSize = 44.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        // Sound pack indicator - only show when NOT in GameOver state
+                        if (uiState.gameState != GameState.GameOver) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 10.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.music_note_24px),
+                                    contentDescription = "Sound Pack",
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text(
+                                    text = uiState.currentSoundPack.name.lowercase().capitalize(),
+                                    color = Color.Gray,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
 
-                        // High score display
-                        if (uiState.highScore > 0) {
+                        // Center content (level number or play button)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            if (uiState.gameState == GameState.GameOver) {
+                                // Play icon when game is over
+                                Icon(
+                                    painter = painterResource(R.drawable.play_arrow_24px),
+                                    contentDescription = "Play Again",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
+
+                                // "Play Again" text below the icon
+                                Text(
+                                    text = "Play Again",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else {
+                                // Number display - shows level when not in game over
+                                Text(
+                                    text = uiState.level.toString(),
+                                    color = Color.White,
+                                    fontSize = 36.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // High score display at bottom - only show when NOT in GameOver state
+                        if (uiState.highScore > 0 && uiState.gameState != GameState.GameOver) {
                             Text(
                                 text = "High: ${uiState.highScore}",
                                 color = Color.Gray,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(top = if (uiState.gameState is GameState.GameOver) 4.dp else 8.dp)
+                                fontSize = 10.sp,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 10.dp)
                             )
                         }
-                    }
-
-                    // Sound pack indicator - at the top of the circle
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = 20.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.music_note_24px),
-                            contentDescription = "Sound Pack",
-                            tint = Color.Gray,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = uiState.currentSoundPack.name.lowercase().capitalize(),
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        )
                     }
                 }
             }
