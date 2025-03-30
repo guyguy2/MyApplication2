@@ -329,7 +329,7 @@ fun SimonGameScreen(
                         if (uiState.gameState == GameState.GameOver) {
                             // Play icon when game is over
                             Icon(
-                                painter = painterResource(R.drawable.music_note_24px),
+                                painter = painterResource(R.drawable.play_arrow_24px),
                                 contentDescription = "Play Again",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(48.dp)
