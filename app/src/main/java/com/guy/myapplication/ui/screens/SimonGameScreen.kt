@@ -3,14 +3,19 @@ package com.guy.myapplication.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ripple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -206,21 +211,42 @@ fun SimonGameScreen(
                     }
                 }
 
-                // Center counter
+                // Center counter/button with FAB-style when in GameOver state
                 Box(
                     modifier = Modifier
                         .size(120.dp)
-                        .background(Color.Black, RoundedCornerShape(60.dp))
-                        .zIndex(3f)
-                        .clickable(
-                            enabled = uiState.gameState is GameState.GameOver,
-                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            if (uiState.gameState is GameState.GameOver) {
-                                onStartNewGame()
+                        .then(
+                            if (uiState.gameState == GameState.GameOver) {
+                                // When in GameOver state, add elevation and shadow
+                                Modifier
+                                    .shadow(
+                                        elevation = 6.dp,
+                                        shape = CircleShape,
+                                        spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                    )
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF1D1D1D))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = ripple(),
+                                        onClick = { onStartNewGame() }
+                                    )
+                            } else {
+                                // Normal state
+                                Modifier
+                                    .background(Color.Black, RoundedCornerShape(60.dp))
+                                    .zIndex(3f)
+                                    .clickable(
+                                        enabled = (uiState.gameState == GameState.GameOver),
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        if (uiState.gameState == GameState.GameOver) {
+                                            onStartNewGame()
+                                        }
+                                    }
                             }
-                        },
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     // Colored arcs
@@ -297,33 +323,47 @@ fun SimonGameScreen(
                         )
                     }
 
-                    // Number display - shows level or message
-                    Text(
-                        text = when (uiState.gameState) {
-                            is GameState.GameOver -> "×"  // Use "×" as game over symbol
-                            else -> uiState.level.toString()
-                        },
-                        color = when (uiState.gameState) {
-                            is GameState.GameOver -> Color.Red
-                            else -> Color.White
-                        },
-                        fontSize = 44.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (uiState.gameState == GameState.GameOver) {
+                            // Play icon when game is over
+                            Icon(
+                                painter = painterResource(R.drawable.music_note_24px),
+                                contentDescription = "Play Again",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(48.dp)
+                            )
 
-                    // High score display
-                    if (uiState.highScore > 0) {
-                        Text(
-                            text = "High: ${uiState.highScore}",
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 20.dp)
-                        )
+                            // Small "Play Again" text below the icon
+                            Text(
+                                text = "Play Again",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        } else {
+                            // Number display - shows level when not in game over
+                            Text(
+                                text = uiState.level.toString(),
+                                color = Color.White,
+                                fontSize = 44.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // High score display
+                        if (uiState.highScore > 0) {
+                            Text(
+                                text = "High: ${uiState.highScore}",
+                                color = Color.Gray,
+                                fontSize = 14.sp,
+                                modifier = Modifier.padding(top = if (uiState.gameState is GameState.GameOver) 4.dp else 8.dp)
+                            )
+                        }
                     }
 
-                    // Sound pack indicator
+                    // Sound pack indicator - at the top of the circle
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
