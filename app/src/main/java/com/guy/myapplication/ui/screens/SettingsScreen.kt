@@ -1,3 +1,4 @@
+// Updated SettingsScreen.kt file
 package com.guy.myapplication.ui.screens
 
 import androidx.compose.foundation.background
@@ -23,9 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.guy.myapplication.R
 import com.guy.myapplication.data.manager.SimonSoundManager
 import com.guy.myapplication.domain.enums.SimonButton
 import com.guy.myapplication.domain.enums.SoundPack
@@ -95,13 +98,24 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             // SOUND PACKS SECTION
-            Text(
-                text = "Sound Packs",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 16.dp)
-            )
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.music_note_24px),
+                    contentDescription = "Sound Packs",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = "Sound Packs",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             // Sound pack selection with scroll indicators
             Box(
@@ -218,6 +232,15 @@ fun SettingsScreen(
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        painter = painterResource(R.drawable.vibration_24px),
+                        contentDescription = "Vibration",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Vibration",
