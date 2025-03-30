@@ -25,6 +25,9 @@ class SimonSoundManager(private val context: Context) {
 
     // Flag to track if sounds are paused when app is in background
     private var isPaused = false
+    
+    // Flag to track if sounds are muted
+    private var isMuted = false
 
     // Vibration settings and control
     private var vibrateEnabled = true
@@ -372,6 +375,23 @@ class SimonSoundManager(private val context: Context) {
     }
 
     /**
+     * Set whether sounds are muted
+     * 
+     * @param muted True to mute sounds, false to unmute
+     */
+    fun setSoundMuted(muted: Boolean) {
+        Log.d(TAG, "Setting sound muted: $muted")
+        isMuted = muted
+    }
+    
+    /**
+     * Get whether sounds are currently muted
+     */
+    fun isSoundMuted(): Boolean {
+        return isMuted
+    }
+    
+    /**
      * Play the sound associated with a specific Simon button using the current sound pack
      *
      * @param button The button to play sound for
@@ -380,9 +400,9 @@ class SimonSoundManager(private val context: Context) {
     fun playSound(button: SimonButton, isPlayerPressed: Boolean = false) {
         Log.d(TAG, "Request to play sound for button: $button with sound pack: ${currentSoundPack.name}, player pressed: $isPlayerPressed")
 
-        // Don't play if paused
-        if (isPaused) {
-            Log.d(TAG, "Sounds are paused, not playing")
+        // Don't play if paused or muted
+        if (isPaused || isMuted) {
+            Log.d(TAG, "Sounds are ${if (isPaused) "paused" else "muted"}, not playing")
             return
         }
 
@@ -450,9 +470,9 @@ class SimonSoundManager(private val context: Context) {
     fun playErrorSound() {
         Log.d(TAG, "Request to play error sound with sound pack: ${currentSoundPack.name}")
 
-        // Don't play if paused
-        if (isPaused) {
-            Log.d(TAG, "Sounds are paused, not playing error sound")
+        // Don't play if paused or muted
+        if (isPaused || isMuted) {
+            Log.d(TAG, "Sounds are ${if (isPaused) "paused" else "muted"}, not playing error sound")
             return
         }
 

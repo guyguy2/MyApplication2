@@ -53,8 +53,10 @@ fun SimonSaysGame(viewModel: SimonGameViewModel) {
             SettingsScreen(
                 currentSoundPack = uiState.currentSoundPack,
                 vibrateEnabled = uiState.vibrateEnabled,
+                highScore = uiState.highScore,
                 onSoundPackSelected = { viewModel.setSoundPack(it) },
                 onVibrateToggled = { viewModel.setVibrationEnabled(it) },
+                onResetHighScore = { viewModel.resetHighScore() },
                 onBackPressed = { viewModel.exitSettings() }
             )
         }
@@ -64,7 +66,8 @@ fun SimonSaysGame(viewModel: SimonGameViewModel) {
                 uiState = uiState,
                 onButtonClick = { button, isPress -> viewModel.onButtonClick(button, isPress) },
                 onSettingsClick = { viewModel.showSettings() },
-                onStartNewGame = { viewModel.startNewGame() }
+                onStartNewGame = { viewModel.startNewGame() },
+                onToggleSound = { viewModel.toggleSound() }
             )
         }
     }
@@ -76,7 +79,8 @@ fun SimonGameScreen(
     uiState: SimonGameUiState,
     onButtonClick: (SimonButton, Boolean) -> Unit,
     onSettingsClick: () -> Unit,
-    onStartNewGame: () -> Unit
+    onStartNewGame: () -> Unit,
+    onToggleSound: () -> Unit
 ) {
     // Single source of truth for which buttons are physically pressed (for UI feedback only)
     var localPressedButtons by remember { mutableStateOf(mapOf<SimonButton, Boolean>()) }
@@ -100,6 +104,22 @@ fun SimonGameScreen(
             TopAppBar(
                 title = { Text("Simon Says") },
                 actions = {
+                    // Mute/Unmute button
+                    IconButton(onClick = onToggleSound) {
+                        Icon(
+                            painter = painterResource(
+                                id = if (uiState.soundEnabled) 
+                                    R.drawable.volume_up_24px 
+                                else 
+                                    R.drawable.volume_off_24px
+                            ),
+                            contentDescription = if (uiState.soundEnabled) "Mute" else "Unmute",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    
+                    // Settings button
                     IconButton(onClick = onSettingsClick) {
                         Icon(
                             imageVector = Icons.Default.Settings,

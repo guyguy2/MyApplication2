@@ -43,15 +43,18 @@ import org.koin.compose.koinInject
 fun SettingsScreen(
     currentSoundPack: SoundPack,
     vibrateEnabled: Boolean = true,
+    highScore: Int = 0,
     onSoundPackSelected: (SoundPack) -> Unit,
     onVibrateToggled: (Boolean) -> Unit = {},
+    onResetHighScore: () -> Unit = {},
     onBackPressed: () -> Unit
 ) {
     // Inject SimonSoundManager from Koin
     val soundManager = koinInject<SimonSoundManager>()
 
-    // Dialog visibility state
+    // Dialog visibility states
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showResetHighScoreDialog by remember { mutableStateOf(false) }
 
     // LazyListState for the sound pack list
     val soundPackListState = rememberLazyListState()
@@ -270,6 +273,50 @@ fun SettingsScreen(
                     )
                 }
             }
+            
+            // Reset High Score card
+            SettingsCard(
+                onClick = { showResetHighScoreDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.counter_0_24px),
+                        contentDescription = "Reset High Score",
+                        tint = Color(0xFFFF9800), // Orange color
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Reset High Score",
+                            color = Color.White,
+                            fontSize = 16.sp
+                        )
+
+                        Text(
+                            text = "Current high score: $highScore",
+                            color = Color.Gray,
+                            fontSize = 14.sp
+                        )
+                    }
+                    
+                    TextButton(
+                        onClick = { showResetHighScoreDialog = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Reset")
+                    }
+                }
+            }
 
             // RATE APP SECTION
             HorizontalDivider(
@@ -315,15 +362,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ABOUT SECTION
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                thickness = 1.dp,
-                color = Color(0xFF303030)
-            )
-
             // About card
             SettingsCard(
                 onClick = { showAboutDialog = true }
@@ -345,7 +383,7 @@ fun SettingsScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "App Info",
+                            text = "About",
                             color = Color.White,
                             fontSize = 16.sp
                         )
@@ -412,6 +450,53 @@ fun SettingsScreen(
                         text = "Close",
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+            },
+            containerColor = Color(0xFF1A1A1A),
+            titleContentColor = Color.White,
+            textContentColor = Color.White
+        )
+    }
+    
+    // Reset High Score confirmation dialog
+    if (showResetHighScoreDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetHighScoreDialog = false },
+            title = {
+                Text(
+                    text = "Reset High Score",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to reset your high score to 0? This action cannot be undone.",
+                    color = Color.White,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { 
+                        onResetHighScore()
+                        showResetHighScoreDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Reset")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showResetHighScoreDialog = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Cancel")
                 }
             },
             containerColor = Color(0xFF1A1A1A),

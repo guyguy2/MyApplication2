@@ -16,5 +16,6 @@ data class SimonGameUiState(
     val highScore: Int = 0,
     val currentSoundPack: SoundPack = SoundPack.STANDARD,
     val activeButtonPresses: MutableMap<SimonButton, Boolean> = mutableMapOf(), // Track which buttons are currently pressed
-    val vibrateEnabled: Boolean = true // Whether button vibration is enabled
+    val vibrateEnabled: Boolean = true, // Whether button vibration is enabled
+    val soundEnabled: Boolean = true // Whether sound is enabled (mute/unmute)
 )

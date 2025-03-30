@@ -91,18 +91,23 @@ class SimonGameViewModel(
 
         // Load vibration setting (default to true)
         val savedVibrateEnabled = preferences.getBoolean("vibrate_enabled", true)
+        
+        // Load sound enabled setting (default to true)
+        val savedSoundEnabled = preferences.getBoolean("sound_enabled", true)
 
-        Log.d(TAG, "Loaded settings - Sound Pack: $savedSoundPack, High Score: $savedHighScore, Vibrate: $savedVibrateEnabled")
+        Log.d(TAG, "Loaded settings - Sound Pack: $savedSoundPack, High Score: $savedHighScore, Vibrate: $savedVibrateEnabled, Sound Enabled: $savedSoundEnabled")
 
-        // Update sound manager with saved sound pack and vibration setting
+        // Update sound manager with saved sound pack, vibration setting, and sound enabled state
         soundManager.setSoundPack(savedSoundPack)
         soundManager.setVibrationEnabled(savedVibrateEnabled)
+        soundManager.setSoundMuted(!savedSoundEnabled)
 
         // Update UI state with saved settings
         _uiState.update { it.copy(
             currentSoundPack = savedSoundPack,
             highScore = savedHighScore,
-            vibrateEnabled = savedVibrateEnabled
+            vibrateEnabled = savedVibrateEnabled,
+            soundEnabled = savedSoundEnabled
         )}
     }
 
@@ -114,11 +119,13 @@ class SimonGameViewModel(
             putString("sound_pack", _uiState.value.currentSoundPack.name)
                 .putInt("high_score", _uiState.value.highScore)
                 .putBoolean("vibrate_enabled", _uiState.value.vibrateEnabled)
+                .putBoolean("sound_enabled", _uiState.value.soundEnabled)
         }
 
         Log.d(TAG, "Saved settings - Sound Pack: ${_uiState.value.currentSoundPack.name}, " +
                 "High Score: ${_uiState.value.highScore}, " +
-                "Vibrate: ${_uiState.value.vibrateEnabled}")
+                "Vibrate: ${_uiState.value.vibrateEnabled}, " +
+                "Sound Enabled: ${_uiState.value.soundEnabled}")
     }
 
     // Track previous game state before entering settings
@@ -226,6 +233,36 @@ class SimonGameViewModel(
         // Update UI state
         _uiState.update { it.copy(vibrateEnabled = enabled) }
 
+        // Save to preferences
+        saveSettings()
+    }
+    
+    /**
+     * Toggle sound enabled/disabled (mute/unmute)
+     */
+    fun toggleSound() {
+        val newSoundEnabled = !_uiState.value.soundEnabled
+        Log.d(TAG, "Toggling sound enabled: $newSoundEnabled")
+        
+        // Update sound manager (note the inverse relationship - soundEnabled=true means not muted)
+        soundManager.setSoundMuted(!newSoundEnabled)
+        
+        // Update UI state
+        _uiState.update { it.copy(soundEnabled = newSoundEnabled) }
+        
+        // Save to preferences
+        saveSettings()
+    }
+    
+    /**
+     * Reset the high score to 0
+     */
+    fun resetHighScore() {
+        Log.d(TAG, "Resetting high score from ${_uiState.value.highScore} to 0")
+        
+        // Update UI state with high score reset to 0
+        _uiState.update { it.copy(highScore = 0) }
+        
         // Save to preferences
         saveSettings()
     }
